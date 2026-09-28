@@ -89,7 +89,7 @@ function OrderListScreen({ navigation }: OrderListScreenProps) {
     () => (
       <View style={styles.emptyContainer}>
         <Text style={styles.emptyText}>You have no previous orders.</Text>
-        <Button title="Start Shopping" onPress={() => navigation.getParent()?.navigate('Home')} />
+        <Button title="Start Shopping" onPress={() => navigation.navigate('Home')} />
       </View>
     ),
     [navigation]

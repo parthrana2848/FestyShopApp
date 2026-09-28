@@ -4,7 +4,6 @@ import Config from 'react-native-config';
 import { AUTH_TOKEN_KEY } from '../../../constants/api';
 import { CLIENT_EVENTS, SERVER_EVENTS, CONNECTION_EVENTS } from '../constants/videoCallEvents';
 import { CALL_TIMEOUTS } from '../constants/videoCallTimeouts';
-import { CHAT_EVENTS } from '../../../features/chat/constants/chatEvents';
 import type {
   RegisterUserPayload,
   RegisterUserCallback,
@@ -29,11 +28,8 @@ import type {
   SocketErrorEvent,
   LatestCounterValueEvent
 } from '../types/socket.types';
-import type { Message, SendMessagePayload, SocketAckResponse } from '../../../features/chat/types/chat.types';
 
 type SocketEventHandler<T> = (data: T) => void;
-type MessageNewHandler = (message: Message) => void;
-type ChatErrorHandler = (error: any) => void;
 
 interface SocketListeners {
   onRegistered?: SocketEventHandler<RegisteredEvent>;
@@ -57,14 +53,7 @@ interface SocketListeners {
 class SocketService {
   private socket: Socket | null = null;
   private listeners: SocketListeners = {};
-  private reconnectListeners: Set<() => void> = new Set();
   private isConnecting = false;
-  private messageNewListeners: Set<MessageNewHandler> = new Set();
-  private chatErrorListeners: Set<ChatErrorHandler> = new Set();
-  private messageDeliveredListeners: Set<(data: any) => void> = new Set();
-  private messageReadListeners: Set<(data: any) => void> = new Set();
-  private reactionAddedListeners: Set<(data: any) => void> = new Set();
-  private reactionRemovedListeners: Set<(data: any) => void> = new Set();
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
@@ -72,76 +61,6 @@ class SocketService {
 
   get socketId(): string | undefined {
     return this.socket?.id;
-  }
-
-  disconnect(): void {
-    if (this.socket) {
-      this.removeAllListeners();
-      this.socket.disconnect();
-      this.socket = null;
-    }
-  }
-
-  onReconnect(handler: () => void): () => void {
-    this.reconnectListeners.add(handler);
-    return () => {
-      this.reconnectListeners.delete(handler);
-    };
-  }
-
-  setListeners(listeners: SocketListeners): void {
-    this.listeners = { ...this.listeners, ...listeners };
-  }
-
-  clearListeners(): void {
-    this.listeners = {};
-  }
-
-  // ----------------------------------------------------------
-  // Client Emitters (Video Call)
-  // ----------------------------------------------------------
-
-  registerUser(
-    payload: RegisterUserPayload,
-    callback?: (response: RegisterUserCallback) => void,
-  ): void {
-    this.emit(CLIENT_EVENTS.REGISTER_USER, payload, callback);
-  }
-
-  callUser(
-    payload: CallUserPayload,
-    callback?: (response: CallUserCallback) => void,
-  ): void {
-    this.emit(CLIENT_EVENTS.CALL_USER, payload, callback);
-  }
-
-  answerCall(
-    payload: AnswerCallPayload,
-    callback?: (response: AnswerCallCallback) => void,
-  ): void {
-    this.emit(CLIENT_EVENTS.ANSWER_CALL, payload, callback);
-  }
-
-  sendIceCandidate(payload: IceCandidatePayload): void {
-    this.emit(CLIENT_EVENTS.ICE_CANDIDATE, payload);
-  }
-
-  rejectCall(
-    payload: RejectCallPayload,
-    callback?: (response: RejectCallCallback) => void,
-  ): void {
-    this.emit(CLIENT_EVENTS.REJECT_CALL, payload, callback);
-  }
-
-  endCall(
-    payload: EndCallPayload,
-    callback?: (response: EndCallCallback) => void,
-  ): void {
-    this.emit(CLIENT_EVENTS.END_CALL, payload, callback);
-  }
-
-  getOnlineUsers(): void {
-    this.emit(CLIENT_EVENTS.GET_ONLINE_USERS, {});
   }
 
   async connect(authToken?: string): Promise<void> {
@@ -185,7 +104,7 @@ class SocketService {
         }, CALL_TIMEOUTS.SOCKET_RECONNECT_MAX_DELAY);
 
         this.socket!.on(CONNECTION_EVENTS.CONNECT, () => {
-
+          
           clearTimeout(timeout);
           resolve();
         });
@@ -200,105 +119,67 @@ class SocketService {
     }
   }
 
-  joinConversation(
-    conversationId: string,
-    callback?: (response: SocketAckResponse) => void,
-  ): void {
-    this.emit(CHAT_EVENTS.CHAT_JOIN, { conversationId }, callback);
+  disconnect(): void {
+    if (this.socket) {
+      this.removeAllListeners();
+      this.socket.disconnect();
+      this.socket = null;
+    }
   }
 
-  leaveConversation(
-    conversationId: string,
-    callback?: (response: SocketAckResponse) => void,
-  ): void {
-    this.emit(CHAT_EVENTS.CHAT_LEAVE, { conversationId }, callback);
+  setListeners(listeners: SocketListeners): void {
+    this.listeners = { ...this.listeners, ...listeners };
   }
 
-  sendMessage(
-    payload: SendMessagePayload,
-    callback?: (ack: SocketAckResponse) => void,
-  ): void {
-    this.emit(CHAT_EVENTS.MESSAGE_SEND, payload, callback);
-  }
-
-  emitMessageDelivered(
-    payload: { conversationId: string; messageId: string },
-  ): void {
-    this.emit(CHAT_EVENTS.MESSAGE_DELIVERED, payload);
-  }
-
-  emitMessageRead(
-    payload: { conversationId: string; messageId: string },
-  ): void {
-    this.emit(CHAT_EVENTS.MESSAGE_READ, payload);
-  }
-
-  emitReactionAdd(
-    payload: { conversationId: string; messageId: string; emoji: string },
-  ): void {
-    console.log('[SocketService] Emitting reaction:add:', payload);
-    this.emit(CHAT_EVENTS.REACTION_ADD, payload);
-  }
-
-  emitReactionRemove(
-    payload: { conversationId: string; messageId: string; emoji: string },
-  ): void {
-    console.log('[SocketService] Emitting reaction:remove:', payload);
-    this.emit(CHAT_EVENTS.REACTION_REMOVE, payload);
+  clearListeners(): void {
+    this.listeners = {};
   }
 
   // ----------------------------------------------------------
-  // Chat Listeners Management
+  // Client → Server Emitters
   // ----------------------------------------------------------
 
-  onMessageNew(handler: MessageNewHandler): () => void {
-    this.messageNewListeners.add(handler);
-    return () => {
-      this.messageNewListeners.delete(handler);
-    };
+  registerUser(
+    payload: RegisterUserPayload,
+    callback?: (response: RegisterUserCallback) => void,
+  ): void {
+    this.emit(CLIENT_EVENTS.REGISTER_USER, payload, callback);
   }
 
-  offMessageNew(handler: MessageNewHandler): void {
-    this.messageNewListeners.delete(handler);
+  callUser(
+    payload: CallUserPayload,
+    callback?: (response: CallUserCallback) => void,
+  ): void {
+    this.emit(CLIENT_EVENTS.CALL_USER, payload, callback);
   }
 
-  onChatError(handler: ChatErrorHandler): () => void {
-    this.chatErrorListeners.add(handler);
-    return () => {
-      this.chatErrorListeners.delete(handler);
-    };
+  answerCall(
+    payload: AnswerCallPayload,
+    callback?: (response: AnswerCallCallback) => void,
+  ): void {
+    this.emit(CLIENT_EVENTS.ANSWER_CALL, payload, callback);
   }
 
-  offChatError(handler: ChatErrorHandler): void {
-    this.chatErrorListeners.delete(handler);
+  sendIceCandidate(payload: IceCandidatePayload): void {
+    this.emit(CLIENT_EVENTS.ICE_CANDIDATE, payload);
   }
 
-  onMessageDelivered(handler: (data: any) => void): () => void {
-    this.messageDeliveredListeners.add(handler);
-    return () => {
-      this.messageDeliveredListeners.delete(handler);
-    };
+  rejectCall(
+    payload: RejectCallPayload,
+    callback?: (response: RejectCallCallback) => void,
+  ): void {
+    this.emit(CLIENT_EVENTS.REJECT_CALL, payload, callback);
   }
 
-  onMessageRead(handler: (data: any) => void): () => void {
-    this.messageReadListeners.add(handler);
-    return () => {
-      this.messageReadListeners.delete(handler);
-    };
+  endCall(
+    payload: EndCallPayload,
+    callback?: (response: EndCallCallback) => void,
+  ): void {
+    this.emit(CLIENT_EVENTS.END_CALL, payload, callback);
   }
 
-  onReactionAdded(handler: (data: any) => void): () => void {
-    this.reactionAddedListeners.add(handler);
-    return () => {
-      this.reactionAddedListeners.delete(handler);
-    };
-  }
-
-  onReactionRemoved(handler: (data: any) => void): () => void {
-    this.reactionRemovedListeners.add(handler);
-    return () => {
-      this.reactionRemovedListeners.delete(handler);
-    };
+  getOnlineUsers(): void {
+    this.emit(CLIENT_EVENTS.GET_ONLINE_USERS, {});
   }
 
   // ----------------------------------------------------------
@@ -345,19 +226,12 @@ class SocketService {
     this.socket.io.on('reconnect', () => {
       console.log('[SocketService] Reconnected');
       this.listeners.onReconnect?.();
-      this.reconnectListeners.forEach((handler) => {
-        try {
-          handler();
-        } catch (e) {
-          console.error('[SocketService] Reconnect listener error:', e);
-        }
-      });
     });
 
     this.socket.io.on("reconnect_attempt", attempt => {
-      console.log("Trying to reconnect...", attempt);
-      this.listeners.onReconnect?.();
-    });
+    console.log("Trying to reconnect...", attempt);
+    this.listeners.onReconnect?.();
+});
   }
 
   private attachServerListeners(): void {
@@ -450,69 +324,6 @@ class SocketService {
       console.log('[SocketService] Latest counter value:', data.value);
       // this.listeners.onLatestCounterValue?.(data);
     });
-
-    // Chat Listeners
-    this.socket.on(CHAT_EVENTS.MESSAGE_NEW, (message: Message) => {
-      this.messageNewListeners.forEach((listener) => {
-        try {
-          listener(message);
-        } catch (e) {
-          console.error('[SocketService] Listener error on message:new:', e);
-        }
-      });
-    });
-
-    this.socket.on(CHAT_EVENTS.MESSAGE_DELIVERED, (data: any) => {
-      this.messageDeliveredListeners.forEach((l) => {
-        try {
-          l(data);
-        } catch (e) {
-          console.error('[SocketService] Listener error on message:delivered:', e);
-        }
-      });
-    });
-
-    this.socket.on(CHAT_EVENTS.MESSAGE_READ, (data: any) => {
-      this.messageReadListeners.forEach((l) => {
-        try {
-          l(data);
-        } catch (e) {
-          console.error('[SocketService] Listener error on message:read:', e);
-        }
-      });
-    });
-
-    this.socket.on(CHAT_EVENTS.REACTION_ADDED, (data: any) => {
-      console.log('[SocketService] Reaction added:', data);
-      this.reactionAddedListeners.forEach((l) => {
-        try {
-          l(data);
-        } catch (e) {
-          console.error('[SocketService] Listener error on reaction:added:', e);
-        }
-      });
-    });
-
-    this.socket.on(CHAT_EVENTS.REACTION_REMOVED, (data: any) => {
-      console.log('[SocketService] Reaction removed:', data);
-      this.reactionRemovedListeners.forEach((l) => {
-        try {
-          l(data);
-        } catch (e) {
-          console.error('[SocketService] Listener error on reaction:removed:', e);
-        }
-      });
-    });
-
-    this.socket.on(CHAT_EVENTS.CHAT_ERROR, (error: any) => {
-      this.chatErrorListeners.forEach((listener) => {
-        try {
-          listener(error);
-        } catch (e) {
-          console.error('[SocketService] Listener error on chat:error:', e);
-        }
-      });
-    });
   }
 
   private removeAllListeners(): void {
@@ -521,10 +332,6 @@ class SocketService {
     }
 
     Object.values(SERVER_EVENTS).forEach((event) => {
-      this.socket!.off(event);
-    });
-
-    Object.values(CHAT_EVENTS).forEach((event) => {
       this.socket!.off(event);
     });
 

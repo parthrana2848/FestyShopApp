@@ -32,9 +32,9 @@ export const SectionCard: React.FC<SectionCardProps> = ({
     if (type === 'category' && value) {
       // In a real app we might navigate to a specific category page
       // Here we can navigate to CategoryList or a hypothetical CategoryDetail
-      navigation.navigate('Commerce', { screen: 'CategoryList' });
+      navigation.navigate('CategoryList'); 
     } else if (type === 'product' && value) {
-      navigation.navigate('Commerce', { screen: 'ProductList' });
+      navigation.navigate('ProductList');
     }
   };
 

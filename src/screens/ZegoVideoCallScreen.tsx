@@ -663,7 +663,7 @@ function OnlineUsersButton({ navigation }: OnlineUsersButtonProps) {
   const { onlineCount, isConnected } = usePresence();
 
   const handlePress = useCallback(() => {
-    navigation.getParent()?.navigate('OnlineUsers');
+    navigation.navigate('OnlineUsers');
   }, [navigation]);
 
   return (

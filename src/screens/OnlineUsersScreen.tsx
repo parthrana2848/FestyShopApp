@@ -11,27 +11,25 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { NativeStackNavigationProp, NativeStackScreenProps } from '@react-navigation/native-stack';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useNavigation } from '@react-navigation/native';
 import { useDispatch } from 'react-redux';
-import { MainStackParamList } from '../types/navigation';
+import { RootStackParamList } from '../types/navigation';
 import { usePresence } from '../modules/video-call/hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useVideoCall } from '../modules/video-call/hooks/useVideoCall';
 import { fetchUserById } from '../api/auth';
 import { setUserName } from '../modules/video-call/store/presenceSlice';
 import type { AppDispatch } from '../store';
-import { chatApiService } from '../features/chat/services/chatApi.service';
 
-type NavigationProp = NativeStackNavigationProp<MainStackParamList>;
-
+type NavigationProp = NativeStackScreenProps<RootStackParamList, 'OnlineUsers'>;
 
 /**
  * Screen showing all currently online users
  * Allows viewing user profiles and initiating video calls
  */
 export default function OnlineUsersScreen() {
-  const navigation = useNavigation<NavigationProp>();
+  const navigation = useNavigation();
   const dispatch = useDispatch<AppDispatch>();
   const { currentUserQuery } = useAuth();
   const { onlineUserIds, onlineCount, isConnected, error, getOnlineUsers, userNames } =
@@ -98,31 +96,6 @@ export default function OnlineUsersScreen() {
     [currentUser?.id, initiateCall, userNames],
   );
 
-  // Handle chat button press
-  const handleChatPress = useCallback(
-    async (userId: string) => {
-      if (!currentUser?.id) {
-        Alert.alert('Error', 'User not authenticated');
-        return;
-      }
-      try {
-        const conversation = await chatApiService.createConversation({ participantId: userId });
-        navigation.navigate('Communication', {
-          screen: 'ChatScreen',
-          params: {
-          conversationId: conversation._id,
-          participantName: userNames[userId] || `User ${userId.substring(0, 6)}`,
-          participantId: userId,
-          },
-        });
-      } catch (err: any) {
-        console.error('[OnlineUsersScreen] Failed to start conversation:', err);
-        Alert.alert('Error', err?.response?.data?.message || err?.message || 'Could not start chat');
-      }
-    },
-    [currentUser?.id, navigation, userNames],
-  );
-
   useEffect(() => {
     // Fetch online users on mount
     getOnlineUsers();
@@ -137,10 +110,9 @@ export default function OnlineUsersScreen() {
         isOnline={true}
         onPress={() => handleUserPress(userId)}
         onCallPress={() => handleCallPress(userId, true)}
-        onChatPress={() => handleChatPress(userId)}
       />
     ),
-    [handleUserPress, handleCallPress, handleChatPress, userNames],
+    [handleUserPress, handleCallPress, userNames],
   );
 
   // Render empty state
@@ -208,10 +180,9 @@ interface UserListItemProps {
   isOnline: boolean;
   onPress: () => void;
   onCallPress: () => void;
-  onChatPress: () => void;
 }
 
-function UserListItem({ userId, userName, isOnline, onPress, onCallPress, onChatPress }: UserListItemProps) {
+function UserListItem({ userId, userName, isOnline, onPress, onCallPress }: UserListItemProps) {
   const displayName = userName ?? `User ${userId.substring(0, 8)}`;
   const userAvatar = `https://i.pravatar.cc/150?img=${userId.length % 100}`;
 
@@ -227,26 +198,17 @@ function UserListItem({ userId, userName, isOnline, onPress, onCallPress, onChat
               <Text style={styles.onlineText}>Online</Text>
             </View>
           </View>
-          <Text style={styles.userSubtitle}>Available for chat & call</Text>
+          <Text style={styles.userSubtitle}>Available for call</Text>
         </View>
       </View>
-      <View style={{ flexDirection: 'row', gap: 8 }}>
-        <TouchableOpacity
-          style={[styles.callButton, { backgroundColor: '#34c759' }]}
-          onPress={onChatPress}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.callButtonText}>💬</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.callButton, !isOnline && styles.callButtonDisabled]}
-          onPress={onCallPress}
-          disabled={!isOnline}
-          activeOpacity={isOnline ? 0.7 : 0.5}
-        >
-          <Text style={styles.callButtonText}>{isOnline ? '📞' : '📵'}</Text>
-        </TouchableOpacity>
-      </View>
+      <TouchableOpacity
+        style={[styles.callButton, !isOnline && styles.callButtonDisabled]}
+        onPress={onCallPress}
+        disabled={!isOnline}
+        activeOpacity={isOnline ? 0.7 : 0.5}
+      >
+        <Text style={styles.callButtonText}>{isOnline ? '📞' : '📵'}</Text>
+      </TouchableOpacity>
     </TouchableOpacity>
   );
 }

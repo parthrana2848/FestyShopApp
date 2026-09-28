@@ -1,12 +1,13 @@
 import { OneSignal } from 'react-native-onesignal';
 import { store } from '../store';
 import { setIncomingCall } from '../modules/video-call/store/videoCallSlice';
+import type { OneSignalCallPayload } from '../modules/video-call/types/videoCall.types';
 
 const VIDEO_CALL_NOTIFICATION_TYPE = 'video_call';
 
 function isVideoCallPayload(
   data: Record<string, unknown>,
-): data is Record<string, string> {
+): data is OneSignalCallPayload {
   return (
     data.type === VIDEO_CALL_NOTIFICATION_TYPE &&
     typeof data.callerId === 'string' &&
@@ -27,7 +28,7 @@ export function setNavigationRef(ref: any): void {
 
 function navigateToIncomingCall(): void {
   if (navigationRef?.isReady?.()) {
-    navigationRef.navigate('Calls', { screen: 'IncomingCall' });
+    navigationRef.navigate('IncomingCall');
   }
 }
 
@@ -39,7 +40,7 @@ export function setupOneSignalVideoCallHandlers(): void {
   // Foreground notification handler
   OneSignal.Notifications.addEventListener(
     'foregroundWillDisplay',
-    (event: any) => {
+    (event) => {
       const data = event.getNotification().additionalData as
         | Record<string, unknown>
         | undefined;
@@ -67,7 +68,7 @@ export function setupOneSignalVideoCallHandlers(): void {
   );
 
   // Notification click handler (background + killed state)
-  OneSignal.Notifications.addEventListener('click', (event: any) => {
+  OneSignal.Notifications.addEventListener('click', (event) => {
     const data = event.notification.additionalData as
       | Record<string, unknown>
       | undefined;

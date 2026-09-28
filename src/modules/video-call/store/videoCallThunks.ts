@@ -36,7 +36,7 @@ export const initiateCallThunk = createAsyncThunk<
       }),
     );
 
-    await callService.initiateCall(params.receiverId, params.callerId);
+    await callService.initiateCall(params.receiverId, params.callerId, params.callerName);
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : 'Failed to initiate call';

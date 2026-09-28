@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { NativeScrollEvent, NativeSyntheticEvent } from 'react-native';
 import { useTabBarAnimation } from '../components/navigation/TabBarVisibilityContext';
-import { bottomTabRef } from '../navigation/tabs/MainTabNavigator';
+import { bottomTabRef } from '../components/navigation/AppTabs';
 
 export const useHideTabBarOnScroll = () => {
     console.log('useHideTabBarOnScroll called');

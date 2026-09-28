@@ -15,7 +15,7 @@ function OrderSuccessScreen({ navigation, route }: OrderSuccessScreenProps) {
   const orderId = route.params?.orderId || 'N/A';
 
   const handleContinueShopping = useCallback(() => {
-    navigation.getParent()?.navigate('Home');
+    navigation.navigate('Home');
   }, [navigation]);
 
   return (
