@@ -1,0 +1,10 @@
+export const BIOMETRIC_ENABLED_KEY = '@FeshShopApp:biometric_enabled';
+
+export const BIOMETRIC_ENABLED = 'BIOMETRIC_ENABLED';
+export const BIOMETRIC_LOGIN_CANCELLED = 'BIOMETRIC_LOGIN_CANCELLED';
+export const BIOMETRIC_AUTH_FAILED = 'BIOMETRIC_AUTH_FAILED';
+export const BIOMETRIC_NOT_AVAILABLE = 'BIOMETRIC_NOT_AVAILABLE';
+
+export const BIOMETRIC_FACE_ID = 'FaceID';
+export const BIOMETRIC_TOUCH_ID = 'TouchID';
+export const BIOMETRIC_FINGERPRINT = 'Fingerprint';

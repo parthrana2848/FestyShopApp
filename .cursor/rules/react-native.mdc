@@ -1,0 +1,167 @@
+---
+description: Global React Native Engineering Rules
+globs: ["*.ts","*.tsx","*.js","*.jsx"]
+alwaysApply: true
+---
+
+# React Native Engineering Rules
+
+## Architecture
+
+Project structure:
+
+src/
+  components/
+  screens/
+  navigation/
+  hooks/
+  services/
+  utils/
+  constants/
+  store/
+  types/
+
+Rules:
+- UI components must not contain business logic
+- API calls must exist only in services
+- Shared logic must be implemented in hooks
+
+---
+
+## Components
+
+- Use **functional components only**
+- Never use class components
+- Prefer pure functions
+- Avoid mutable state
+- Components should be **<200 lines**
+- Split large components into smaller reusable components
+
+---
+
+## React Hooks
+
+Use hooks correctly:
+
+- useState → local state
+- useEffect → side effects
+- useCallback → event handlers when needed
+- useMemo → expensive calculations
+
+Rules:
+- Create custom hooks for reusable logic
+- Never use lifecycle methods (componentDidMount etc.)
+
+---
+
+## API Layer
+
+- All API calls must be inside **services**
+- Never call APIs directly from components
+- Use async/await
+- Wrap API calls with try/catch
+- Handle loading / success / error states
+
+---
+
+## Error Handling
+
+- Use try/catch for async operations
+- Show user-friendly error messages
+- Handle loading and empty states
+- Log critical errors
+
+---
+
+## Performance
+
+- Use **FlatList instead of ScrollView** for long lists
+- Always provide `keyExtractor`
+- Avoid inline functions in JSX
+- Use `React.memo` for reusable components
+- Memoize handlers using `useCallback`
+- Memoize expensive calculations using `useMemo`
+- Avoid unnecessary re-renders
+
+---
+
+## List Rendering
+
+- Use FlatList for dynamic lists
+- Provide keyExtractor
+- Memoize renderItem
+
+---
+
+## Styling
+
+- Avoid inline styles
+- Use `StyleSheet.create`
+- Place styles at bottom of file
+- Reuse shared styles
+
+---
+
+## Naming Conventions
+
+| Type | Convention |
+|-----|-------------|
+| Components | PascalCase |
+| Functions | camelCase |
+| Variables | camelCase |
+| Constants | UPPER_CASE |
+| Hooks | useSomething |
+
+Examples:
+UserProfile.tsx  
+useAuth.ts  
+API_BASE_URL
+
+---
+
+## Constants
+
+- Avoid hardcoded values
+- Store reusable values in `/constants`
+
+---
+
+## Logging
+
+- Avoid console.log in production
+- Use centralized logging utilities
+- Log meaningful debugging information
+
+---
+
+## Security
+
+- Never expose secrets in code
+- Use environment variables
+- Validate API responses
+- Avoid storing sensitive data in plain storage
+
+---
+
+## Code Quality
+
+Code must:
+
+- Be clean and readable
+- Follow DRY principle
+- Avoid duplication
+- Maintain low cyclomatic complexity
+- Prefer early return over nested conditions
+- Break large functions into smaller ones
+
+---
+
+## Senior Engineering Review
+
+Before generating code ensure:
+
+- Optimized solution
+- No duplicate logic
+- High readability
+- Performance best practices applied
+- Production-ready code

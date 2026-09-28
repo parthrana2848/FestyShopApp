@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "638251412919",
+    "project_id": "feshshop-c37dc",
+    "storage_bucket": "feshshop-c37dc.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:638251412919:android:e773cd9cdf5ece9e710c32",
+        "android_client_info": {
+          "package_name": "com.feshshopapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "638251412919-btm767ohcgp0kuejc5ktj7ihm461c70n.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.feshshopapp",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "638251412919-o80o7hnl8d7urcgiuuq0008333g1o0uf.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbHCoheIkUUJ5xWClNfonH8YnpMcIQ6-0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "638251412919-o80o7hnl8d7urcgiuuq0008333g1o0uf.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
