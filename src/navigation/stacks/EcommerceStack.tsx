@@ -14,8 +14,8 @@ export const EcommerceStack = () => (
   <Stack.Navigator>
     <Stack.Screen name="ProductList" component={ProductListScreen} options={{ title: 'Products' }} />
     <Stack.Screen name="CategoryList" component={CategoryListScreen} options={{ title: 'Categories' }} />
-    <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart' }} />
-    <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' }} />
+    <Stack.Screen name="Cart" component={CartScreen} options={{ title: 'Shopping Cart', headerShown:false }} />
+    <Stack.Screen name="Checkout" component={CheckoutScreen} options={{ title: 'Checkout' , headerShown:false}} />
     <Stack.Screen name="OrderList" component={OrderListScreen} options={{ title: 'My Orders' }} />
     <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} options={{ title: 'Order Placed', headerLeft: () => null }} />
   </Stack.Navigator>

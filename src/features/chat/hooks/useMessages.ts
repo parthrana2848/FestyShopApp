@@ -333,13 +333,10 @@ export function useMessages(
   );
   const applyReactionRemoved = useCallback(
     (messageId: string, emoji: string, userId: string) => {
-      console.log( "messageId", messageId, "emoji", emoji, "userId", userId );
       setMessages(prev => {
         let found = false;
         const next = prev.map(m => {
           const id = getMessageId(m);
-          console.log("m", m);
-          console.log( "id", id, "m._id", m._id, "(m as any).id", (m as any).id, "m.clientMessageId", m.clientMessageId );
           if (
             !id ||
             (id !== messageId &&
@@ -347,7 +344,6 @@ export function useMessages(
               (m as any).id !== messageId &&
               m.clientMessageId !== messageId)
           ) {
-            console.log( "returning m", m );
             return m;
           }
           found = true;
@@ -511,7 +507,6 @@ export function useMessages(
     // 5. Reaction Removed listener
     const unsubReactionRemoved = socketService.onReactionRemoved(
       (data: any) => {
-        console.log('[useMessages] Reaction removed event received:', data);
         if (data?.messageId && data?.emoji && data?.userId) {
           applyReactionRemoved(data.messageId, data.emoji, data.userId);
         }
@@ -771,12 +766,6 @@ export function useMessages(
 
   const removeReaction = useCallback(
     (messageId: string, emoji: string) => {
-      console.log('[useMessages] Removing reaction:', {
-        messageId,
-        emoji,
-        currentUserId,
-      });
-
       if (!currentUserId) return;
       applyReactionRemoved(messageId, emoji, currentUserId);
       socketService.emitReactionRemove({ conversationId, messageId, emoji });

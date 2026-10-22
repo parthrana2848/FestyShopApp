@@ -28,7 +28,7 @@ export const MainTabNavigator = () => {
         />
       )}
     >
-      <Tab.Screen
+      {/* <Tab.Screen
         name="Dashboard"
         component={DashboardStack}
         options={{
@@ -36,7 +36,7 @@ export const MainTabNavigator = () => {
             <Text style={{ color, fontSize: size }}>🏠</Text>
           ),
         }}
-      />
+      /> */}
       <Tab.Screen
         name="Ecommerce"
         component={EcommerceStack}

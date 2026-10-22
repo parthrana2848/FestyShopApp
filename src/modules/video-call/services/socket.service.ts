@@ -30,6 +30,7 @@ import type {
   LatestCounterValueEvent
 } from '../types/socket.types';
 import type { Message, SendMessagePayload, SocketAckResponse } from '../../../features/chat/types/chat.types';
+import type { PaymentFailedEvent, PaymentSuccessEvent } from '../../../types/payment.types';
 
 type SocketEventHandler<T> = (data: T) => void;
 type MessageNewHandler = (message: Message) => void;
@@ -65,6 +66,8 @@ class SocketService {
   private messageReadListeners: Set<(data: any) => void> = new Set();
   private reactionAddedListeners: Set<(data: any) => void> = new Set();
   private reactionRemovedListeners: Set<(data: any) => void> = new Set();
+  private paymentSuccessListeners: Set<(data: PaymentSuccessEvent) => void> = new Set();
+  private paymentFailedListeners: Set<(data: PaymentFailedEvent) => void> = new Set();
 
   get isConnected(): boolean {
     return this.socket?.connected ?? false;
@@ -87,6 +90,16 @@ class SocketService {
     return () => {
       this.reconnectListeners.delete(handler);
     };
+  }
+
+  onPaymentSuccess(handler: (data: PaymentSuccessEvent) => void): () => void {
+    this.paymentSuccessListeners.add(handler);
+    return () => this.paymentSuccessListeners.delete(handler);
+  }
+
+  onPaymentFailed(handler: (data: PaymentFailedEvent) => void): () => void {
+    this.paymentFailedListeners.add(handler);
+    return () => this.paymentFailedListeners.delete(handler);
   }
 
   setListeners(listeners: SocketListeners): void {
@@ -243,7 +256,6 @@ class SocketService {
   emitReactionRemove(
     payload: { conversationId: string; messageId: string; emoji: string },
   ): void {
-    console.log('[SocketService] Emitting reaction:remove:', payload);
     this.emit(CHAT_EVENTS.REACTION_REMOVE, payload);
   }
 
@@ -451,6 +463,14 @@ class SocketService {
       // this.listeners.onLatestCounterValue?.(data);
     });
 
+    this.socket.on('payment:success', (data: PaymentSuccessEvent) => {
+      this.paymentSuccessListeners.forEach((listener) => listener(data));
+    });
+
+    this.socket.on('payment:failed', (data: PaymentFailedEvent) => {
+      this.paymentFailedListeners.forEach((listener) => listener(data));
+    });
+
     // Chat Listeners
     this.socket.on(CHAT_EVENTS.MESSAGE_NEW, (message: Message) => {
       this.messageNewListeners.forEach((listener) => {
@@ -494,7 +514,6 @@ class SocketService {
     });
 
     this.socket.on(CHAT_EVENTS.REACTION_REMOVED, (data: any) => {
-      console.log('[SocketService] Reaction removed:', data);
       this.reactionRemovedListeners.forEach((l) => {
         try {
           l(data);

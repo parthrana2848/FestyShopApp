@@ -12,7 +12,7 @@ export type BottomTabRef = {
   hide: () => void;
 };
 
-const TAB_BAR_HEIGHT = 130;
+const TAB_BAR_HEIGHT = 80;
 const ANIMATION_DURATION = 250;
 
 const AnimatedBottomTabBar = forwardRef<

@@ -1,9 +1,10 @@
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  ListRenderItem,
   ScrollView,
   StyleSheet,
   Text,
@@ -12,13 +13,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
-import PaymentStatusPicker from '../components/PaymentStatusPicker';
 import TextInput from '../components/TextInput';
 import { useCart } from '../context/CartContext';
 import { useCreateOrderMutation } from '../hooks/useOrder';
-import type { CartItem } from '../types/cart';
+import { useRazorpayCheckout } from '../hooks/useRazorpayCheckout';
+import { COLORS, SPACING, TYPOGRAPHY } from '../theme/theme';
+import type { CartItem, CartState } from '../types/cart';
 import type { RootStackParamList } from '../types/navigation';
-import type { PaymentMethod, PaymentStatus } from '../types/order';
+import type { PaymentFlowResult } from '../types/payment.types';
+import type { PaymentMethod } from '../types/order';
 
 type CheckoutScreenProps = NativeStackScreenProps<RootStackParamList, 'Checkout'>;
 
@@ -28,6 +31,109 @@ type CheckoutScreenProps = NativeStackScreenProps<RootStackParamList, 'Checkout'
 
 const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'CARD', 'UPI'];
 
+interface CheckoutPaymentOptionProps {
+  method: PaymentMethod;
+  selected: boolean;
+  disabled: boolean;
+  onSelect: (method: PaymentMethod) => void;
+}
+
+function CheckoutPaymentOption({ method, selected, disabled, onSelect }: CheckoutPaymentOptionProps) {
+  const handlePress = useCallback(() => onSelect(method), [method, onSelect]);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.paymentMethodOption,
+        selected && styles.paymentMethodOptionSelected,
+        disabled && styles.paymentMethodOptionDisabled,
+      ]}
+      onPress={handlePress}
+      disabled={disabled}
+      activeOpacity={0.75}
+    >
+      <View style={[styles.radioButton, selected && styles.radioButtonSelected]} />
+      <Text style={[styles.paymentMethodText, selected && styles.paymentMethodTextSelected]}>
+        {method}
+      </Text>
+    </TouchableOpacity>
+  );
+}
+
+interface CheckoutPaymentMethodsProps {
+  selectedMethod: PaymentMethod;
+  pendingOrderId: string | null;
+  onSelect: (method: PaymentMethod) => void;
+}
+
+function CheckoutPaymentMethods({
+  selectedMethod,
+  pendingOrderId,
+  onSelect,
+}: CheckoutPaymentMethodsProps) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeading}>Payment Method</Text>
+      <View style={styles.paymentMethodsContainer}>
+        {PAYMENT_METHODS.map((method) => (
+          <CheckoutPaymentOption
+            key={method}
+            method={method}
+            selected={selectedMethod === method}
+            disabled={!!pendingOrderId && method === 'CASH'}
+            onSelect={onSelect}
+          />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+interface CheckoutOrderSummaryProps {
+  cart: CartState;
+  renderOrderItem: ListRenderItem<CartItem>;
+}
+
+function CheckoutOrderSummary({ cart, renderOrderItem }: CheckoutOrderSummaryProps) {
+  return (
+    <View style={styles.section}>
+      <Text style={styles.sectionHeading}>Order Summary</Text>
+      <FlatList
+        data={cart.items}
+        renderItem={renderOrderItem}
+        keyExtractor={(item) => item.product}
+        scrollEnabled={false}
+        style={styles.orderItemsList}
+      />
+      <View style={styles.divider} />
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryLabel}>Subtotal</Text>
+        <Text style={styles.summaryValue}>${cart.subTotal.toFixed(2)}</Text>
+      </View>
+      {cart.selectedCoupon ? (
+        <View style={styles.summaryRow}>
+          <View style={styles.discountLabelRow}>
+            <Text style={styles.summaryLabel}>Discount</Text>
+            <View style={styles.couponBadge}>
+              <Text style={styles.couponBadgeText}>{cart.selectedCoupon.code}</Text>
+            </View>
+          </View>
+          <Text style={styles.discountValue}>-${cart.discount.toFixed(2)}</Text>
+        </View>
+      ) : (
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Discount</Text>
+          <Text style={styles.summaryValue}>$0.00</Text>
+        </View>
+      )}
+      <View style={styles.totalRow}>
+        <Text style={styles.totalLabel}>Total Amount</Text>
+        <Text style={styles.totalValue}>${cart.totalAmount.toFixed(2)}</Text>
+      </View>
+    </View>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
@@ -35,10 +141,54 @@ const PAYMENT_METHODS: PaymentMethod[] = ['CASH', 'CARD', 'UPI'];
 function CheckoutScreen({ navigation }: CheckoutScreenProps) {
   const { cart, clearCart } = useCart();
   const createOrderMutation = useCreateOrderMutation();
+  const {
+    isProcessing: isPaymentProcessing,
+    isRestoring,
+    pendingOrderId,
+    paymentUpdate,
+    payForOrder,
+  } = useRazorpayCheckout();
 
   const [formData, setFormData] = useState({ name: '', phone: '' });
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>('CASH');
-  const [selectedPaymentStatus, setSelectedPaymentStatus] = useState<PaymentStatus>('PENDING');
+  const handledResults = useRef(new Set<string>());
+
+  const handlePaymentResult = useCallback((result: PaymentFlowResult) => {
+    if (result.state === 'cancelled') {
+      return;
+    }
+
+    const resultKey = `${result.orderId}:${result.state}`;
+    if (handledResults.current.has(resultKey)) {
+      return;
+    }
+    handledResults.current.add(resultKey);
+
+    if (result.state === 'paid') {
+      clearCart();
+      navigation.replace('OrderSuccess', { orderId: result.orderId });
+      return;
+    }
+
+    if (result.state === 'pending') {
+      Alert.alert('Payment Processing', 'Payment is being processed. Checking status...');
+      return;
+    }
+
+    Alert.alert('Payment Failed', result.reason ?? 'Please retry your payment.');
+  }, [clearCart, navigation]);
+
+  useEffect(() => {
+    if (pendingOrderId && selectedPaymentMethod === 'CASH') {
+      setSelectedPaymentMethod('CARD');
+    }
+  }, [pendingOrderId, selectedPaymentMethod]);
+
+  useEffect(() => {
+    if (paymentUpdate) {
+      handlePaymentResult(paymentUpdate);
+    }
+  }, [handlePaymentResult, paymentUpdate]);
 
   // -------------------------------------------------------------------------
   // Handlers
@@ -61,6 +211,7 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
       cart.items.length > 0,
     [formData, cart.items.length]
   );
+  const isBusy = isRestoring || isPaymentProcessing || createOrderMutation.isPending;
 
   const handlePlaceOrder = useCallback(async () => {
     if (!formData.name.trim()) {
@@ -76,7 +227,6 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
       return;
     }
 
-    // Build payload — discount and totalAmount come directly from cart state
     const payload = {
       customerSnapshot: {
         name: formData.name.trim(),
@@ -87,13 +237,36 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
       discount: cart.discount,
       totalAmount: cart.totalAmount,
       paymentMethod: selectedPaymentMethod,
-      paymentStatus: selectedPaymentStatus,
+      paymentStatus: 'PENDING' as const,
     };
 
     try {
-      const order = await createOrderMutation.mutateAsync(payload);
-      clearCart();
-      navigation.replace('OrderSuccess', { orderId: order._id });
+      if (selectedPaymentMethod === 'CASH') {
+        const order = await createOrderMutation.mutateAsync(payload);
+        clearCart();
+        navigation.replace('OrderSuccess', { orderId: order._id });
+        return;
+      }
+
+      let orderId = pendingOrderId;
+      const isNewOrder = !orderId;
+      if (!orderId) {
+        const order = await createOrderMutation.mutateAsync(payload);
+        orderId = order._id;
+      }
+
+      const resultKeyPrefix = `${orderId}:`;
+      for (const resultKey of handledResults.current) {
+        if (resultKey.startsWith(resultKeyPrefix)) {
+          handledResults.current.delete(resultKey);
+        }
+      }
+
+      const result = await payForOrder(orderId, {
+        contact: formData.phone.trim(),
+        isNewOrder,
+      });
+      handlePaymentResult(result);
     } catch (error) {
       console.error('Order creation failed:', error);
     }
@@ -101,10 +274,12 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
     formData,
     cart,
     selectedPaymentMethod,
-    selectedPaymentStatus,
     createOrderMutation,
     clearCart,
     navigation,
+    pendingOrderId,
+    payForOrder,
+    handlePaymentResult,
   ]);
 
   // -------------------------------------------------------------------------
@@ -171,106 +346,32 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
           />
         </View>
 
-        {/* ── Payment Method ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>Payment Method</Text>
-
-          <View style={styles.paymentMethodsContainer}>
-            {PAYMENT_METHODS.map((method) => (
-              <TouchableOpacity
-                key={method}
-                style={[
-                  styles.paymentMethodOption,
-                  selectedPaymentMethod === method && styles.paymentMethodOptionSelected,
-                ]}
-                onPress={() => setSelectedPaymentMethod(method)}
-                activeOpacity={0.75}
-              >
-                <View
-                  style={[
-                    styles.radioButton,
-                    selectedPaymentMethod === method && styles.radioButtonSelected,
-                  ]}
-                />
-                <Text
-                  style={[
-                    styles.paymentMethodText,
-                    selectedPaymentMethod === method && styles.paymentMethodTextSelected,
-                  ]}
-                >
-                  {method}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </View>
-
-        {/* ── Payment Status ── */}
-        <PaymentStatusPicker
-          selectedStatus={selectedPaymentStatus}
-          onSelect={setSelectedPaymentStatus}
+        <CheckoutPaymentMethods
+          selectedMethod={selectedPaymentMethod}
+          pendingOrderId={pendingOrderId}
+          onSelect={setSelectedPaymentMethod}
         />
-
-        {/* ── Order Summary ── */}
-        <View style={styles.section}>
-          <Text style={styles.sectionHeading}>Order Summary</Text>
-
-          <FlatList
-            data={cart.items}
-            renderItem={renderOrderItem}
-            keyExtractor={(item) => item.product}
-            scrollEnabled={false}
-            style={styles.orderItemsList}
-          />
-
-          <View style={styles.divider} />
-
-          {/* Subtotal */}
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>${cart.subTotal.toFixed(2)}</Text>
-          </View>
-
-          {/* Discount row — only shown when a coupon is applied */}
-          {cart.selectedCoupon ? (
-            <View style={styles.summaryRow}>
-              <View style={styles.discountLabelRow}>
-                <Text style={styles.summaryLabel}>Discount</Text>
-                <View style={styles.couponBadge}>
-                  <Text style={styles.couponBadgeText}>{cart.selectedCoupon.code}</Text>
-                </View>
-              </View>
-              <Text style={styles.discountValue}>-${cart.discount.toFixed(2)}</Text>
-            </View>
-          ) : (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Discount</Text>
-              <Text style={styles.summaryValue}>$0.00</Text>
-            </View>
-          )}
-
-          {/* Total */}
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Amount</Text>
-            <Text style={styles.totalValue}>${cart.totalAmount.toFixed(2)}</Text>
-          </View>
-        </View>
+        <CheckoutOrderSummary cart={cart} renderOrderItem={renderOrderItem} />
       </ScrollView>
 
       {/* ── Place Order Button ── */}
       <View style={styles.bottomContainer}>
         <Button
-          title={createOrderMutation.isPending ? 'Placing Order...' : 'Place Order'}
+          title={isBusy ? 'Processing...' : selectedPaymentMethod === 'CASH' ? 'Place Order' : 'Place Order / Pay'}
           onPress={handlePlaceOrder}
-          disabled={!isFormValid() || createOrderMutation.isPending}
+          disabled={!isFormValid() || isBusy}
         />
       </View>
 
       {/* ── Loading overlay ── */}
-      {createOrderMutation.isPending && (
+      {isBusy && (
         <View style={styles.loadingOverlay}>
-          <ActivityIndicator size="large" color="#007AFF" />
-          <Text style={styles.loadingText}>Creating your order...</Text>
+          <ActivityIndicator size="large" color={COLORS.primary} />
+          <Text style={styles.loadingText}>
+            {isRestoring || isPaymentProcessing
+              ? 'Processing Secure Payment...'
+              : 'Creating your order...'}
+          </Text>
         </View>
       )}
     </SafeAreaView>
@@ -283,7 +384,7 @@ function CheckoutScreen({ navigation }: CheckoutScreenProps) {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    // flex: 1,
     backgroundColor: '#f5f5f5',
   },
   scrollContent: {
@@ -330,6 +431,9 @@ const styles = StyleSheet.create({
   paymentMethodOptionSelected: {
     borderColor: '#007AFF',
     backgroundColor: '#F0F7FF',
+  },
+  paymentMethodOptionDisabled: {
+    opacity: 0.5,
   },
   radioButton: {
     width: 20,
@@ -473,14 +577,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: COLORS.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#fff',
+    marginTop: SPACING.md,
+    ...TYPOGRAPHY.bodyMedium,
+    color: COLORS.white,
     fontWeight: '500',
   },
 });

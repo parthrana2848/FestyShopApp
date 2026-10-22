@@ -74,7 +74,7 @@ function App() {
   return (
     <ReduxProvider store={store}>
       <QueryClientProvider client={queryClient}>
-        <SafeAreaProvider>
+        {/* <SafeAreaProvider> */}
           <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
           <AuthProvider>
             <CartProvider>
@@ -83,7 +83,7 @@ function App() {
               </GestureHandlerRootView>
             </CartProvider>
           </AuthProvider>
-        </SafeAreaProvider>
+        {/* </SafeAreaProvider> */}
       </QueryClientProvider>
     </ReduxProvider>
   );

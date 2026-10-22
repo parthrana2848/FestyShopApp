@@ -9,13 +9,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Button from '../components/Button';
 import type { RootStackParamList } from '../types/navigation';
 
+
 type OrderSuccessScreenProps = NativeStackScreenProps<RootStackParamList, 'OrderSuccess'>;
 
 function OrderSuccessScreen({ navigation, route }: OrderSuccessScreenProps) {
   const orderId = route.params?.orderId || 'N/A';
 
   const handleContinueShopping = useCallback(() => {
-    navigation.getParent()?.navigate('Home');
+    navigation.getParent()?.navigate('Ecommerce');
   }, [navigation]);
 
   return (
